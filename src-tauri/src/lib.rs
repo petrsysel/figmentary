@@ -1,6 +1,10 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, MAIN_DB};
 use serde::Serialize;
-use std::{fs, time::Instant};
+use std::{
+    fs,
+    sync::Mutex,
+    time::Instant,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +21,38 @@ struct StorageProofResult {
     attachment_bytes_before: i64,
     attachment_bytes_after: i64,
     elapsed_milliseconds: u128,
+}
+
+#[derive(Default)]
+struct PdfProofStore {
+    state: Mutex<Option<PdfProofState>>,
+}
+
+struct PdfProofState {
+    directory: std::path::PathBuf,
+    story_path: std::path::PathBuf,
+    byte_length: usize,
+    range_requests: usize,
+    served_bytes: usize,
+}
+
+impl Drop for PdfProofStore {
+    fn drop(&mut self) {
+        if let Ok(state) = self.state.get_mut() {
+            if let Some(proof) = state.take() {
+                let _ = fs::remove_dir_all(proof.directory);
+            }
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PdfProofMetadata {
+    byte_length: usize,
+    initial_bytes: Vec<u8>,
+    range_requests: usize,
+    served_bytes: usize,
 }
 
 #[tauri::command]
@@ -134,10 +170,122 @@ fn run_storage_proof() -> Result<StorageProofResult, String> {
     }
 }
 
+fn append_pdf_object(buffer: &mut Vec<u8>, offsets: &mut Vec<usize>, id: usize, body: &[u8]) {
+    offsets.push(buffer.len());
+    buffer.extend_from_slice(format!("{id} 0 obj\n").as_bytes());
+    buffer.extend_from_slice(body);
+    buffer.extend_from_slice(b"\nendobj\n");
+}
+
+fn build_pdf_proof_document(target_bytes: usize) -> Vec<u8> {
+    let mut pdf = b"%PDF-1.7\n%\xE2\xE3\xCF\xD3\n".to_vec();
+    let mut offsets = Vec::new();
+    append_pdf_object(&mut pdf, &mut offsets, 1, b"<< /Type /Catalog /Pages 2 0 R >>");
+    append_pdf_object(&mut pdf, &mut offsets, 2, b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+    append_pdf_object(&mut pdf, &mut offsets, 3, b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>");
+    let page_text = b"BT /F1 20 Tf 72 720 Td (FigmentFell PDF range proof - searchable local attachment) Tj ET";
+    append_pdf_object(&mut pdf, &mut offsets, 4, format!("<< /Length {} >>\nstream\n", page_text.len()).as_bytes());
+    let content_offset = pdf.len() - b"\nendobj\n".len();
+    pdf.truncate(content_offset);
+    pdf.extend_from_slice(page_text);
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+    append_pdf_object(&mut pdf, &mut offsets, 5, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+
+    let overhead_estimate = 512usize;
+    let filler_length = target_bytes.saturating_sub(pdf.len() + overhead_estimate);
+    offsets.push(pdf.len());
+    pdf.extend_from_slice(format!("6 0 obj\n<< /Length {filler_length} >>\nstream\n").as_bytes());
+    pdf.resize(pdf.len() + filler_length, b' ');
+    pdf.extend_from_slice(b"\nendstream\nendobj\n");
+
+    let xref_offset = pdf.len();
+    pdf.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", offsets.len() + 1).as_bytes());
+    for offset in offsets {
+        pdf.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+    }
+    pdf.extend_from_slice(format!("trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n").as_bytes());
+    pdf
+}
+
+#[tauri::command]
+fn start_pdf_proof(store: tauri::State<PdfProofStore>) -> Result<PdfProofMetadata, String> {
+    const TARGET_BYTES: usize = 32 * 1024 * 1024;
+    const INITIAL_BYTES: usize = 64 * 1024;
+    let mut state = store.state.lock().map_err(|error| error.to_string())?;
+    if let Some(previous) = state.take() {
+        fs::remove_dir_all(previous.directory).map_err(|error| error.to_string())?;
+    }
+
+    let directory = std::env::temp_dir().join(format!("figmentfell-pdf-proof-{}", std::process::id()));
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let story_path = directory.join("range-proof.ffstory");
+    let pdf = build_pdf_proof_document(TARGET_BYTES);
+    let byte_length = pdf.len();
+    let initial_bytes = pdf[..INITIAL_BYTES.min(byte_length)].to_vec();
+    let connection = Connection::open(&story_path).map_err(|error| error.to_string())?;
+    connection
+        .execute_batch("CREATE TABLE assets (id INTEGER PRIMARY KEY, media_type TEXT NOT NULL, payload BLOB NOT NULL);")
+        .map_err(|error| error.to_string())?;
+    connection
+        .execute("INSERT INTO assets (id, media_type, payload) VALUES (1, 'application/pdf', ?1)", params![pdf])
+        .map_err(|error| error.to_string())?;
+
+    *state = Some(PdfProofState {
+        directory,
+        story_path,
+        byte_length,
+        range_requests: 0,
+        served_bytes: INITIAL_BYTES.min(byte_length),
+    });
+    Ok(PdfProofMetadata {
+        byte_length,
+        initial_bytes,
+        range_requests: 0,
+        served_bytes: INITIAL_BYTES.min(byte_length),
+    })
+}
+
+#[tauri::command]
+fn read_pdf_proof_range(begin: usize, end: usize, store: tauri::State<PdfProofStore>) -> Result<Vec<u8>, String> {
+    let mut state = store.state.lock().map_err(|error| error.to_string())?;
+    let proof = state.as_mut().ok_or_else(|| "PDF proof has not been initialized.".to_owned())?;
+    if begin >= end || end > proof.byte_length {
+        return Err("Requested PDF byte range is invalid.".to_owned());
+    }
+    let connection = Connection::open(&proof.story_path).map_err(|error| error.to_string())?;
+    let blob = connection
+        .blob_open(MAIN_DB, "assets", "payload", 1, false)
+        .map_err(|error| error.to_string())?;
+    let mut bytes = vec![0_u8; end - begin];
+    blob.read_at(&mut bytes, begin).map_err(|error| error.to_string())?;
+    proof.range_requests += 1;
+    proof.served_bytes += bytes.len();
+    Ok(bytes)
+}
+
+#[tauri::command]
+fn pdf_proof_metrics(store: tauri::State<PdfProofStore>) -> Result<PdfProofMetadata, String> {
+    let state = store.state.lock().map_err(|error| error.to_string())?;
+    let proof = state.as_ref().ok_or_else(|| "PDF proof has not been initialized.".to_owned())?;
+    Ok(PdfProofMetadata {
+        byte_length: proof.byte_length,
+        initial_bytes: Vec::new(),
+        range_requests: proof.range_requests,
+        served_bytes: proof.served_bytes,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![proof_runtime_info, run_storage_proof])
+        .manage(PdfProofStore::default())
+        .invoke_handler(tauri::generate_handler![
+            proof_runtime_info,
+            run_storage_proof,
+            start_pdf_proof,
+            read_pdf_proof_range,
+            pdf_proof_metrics
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

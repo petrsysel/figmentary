@@ -95,4 +95,7 @@ h1 { margin: 8px 0 12px; font-family: Georgia, serif; font-size: clamp(2rem, 5vw
 .performance-results table { width: 100%; border-collapse: collapse; color: var(--ff-text-primary); text-align: left; }
 .performance-results th, .performance-results td { padding: 10px; border: 1px solid var(--ff-border); white-space: nowrap; }
 .performance-results th { color: var(--ff-text-secondary); font-size: .78rem; font-weight: 600; }
+.pdf-proof-run { margin: 28px 0 18px; padding: 11px 14px; color: var(--ff-text-primary); background: var(--ff-panel); border: 1px solid var(--ff-accent); cursor: pointer; }
+.pdf-proof-run:disabled { cursor: wait; opacity: .65; }
+.pdf-proof-canvas { display: block; width: min(100%, 680px); height: auto; margin-top: 18px; background: var(--ff-document); border: 1px solid var(--ff-border); }
 @media (max-width: 720px) { .proof-shell { padding: 30px 18px; } .proof-summary, .proof-workspace, .proof-storage, .proof-decision, .performance-metrics, .performance-search { grid-template-columns: 1fr; } .proof-window { border-right: 0; border-bottom: 1px solid var(--ff-border); } }

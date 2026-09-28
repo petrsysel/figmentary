@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Locale, t } from "./i18n";
 import { MilkdownChunkEditor } from "./proofs/MilkdownChunkEditor";
 import { PerformanceProof } from "./proofs/PerformanceProof";
+import { PdfRangeProof } from "./proofs/PdfRangeProof";
 import { buildSyntheticJournal, searchJournal } from "./proofs/syntheticJournal";
 import "./App.css";
 
@@ -20,7 +21,7 @@ type StorageProofResult = {
 };
 
 type EditorMode = "windowed" | "shared";
-type ProofView = "architecture" | "performance";
+type ProofView = "architecture" | "performance" | "pdf";
 
 const locale: Locale = "cs-CZ";
 const windowRadius = 1;
@@ -78,10 +79,11 @@ function App() {
         <div className="proof-view-tabs" role="tablist" aria-label={t(locale, "proof.views")}>
           <button aria-selected={proofView === "architecture"} onClick={() => setProofView("architecture")} role="tab" type="button">{t(locale, "proof.view.architecture")}</button>
           <button aria-selected={proofView === "performance"} onClick={() => setProofView("performance")} role="tab" type="button">{t(locale, "proof.view.performance")}</button>
+          <button aria-selected={proofView === "pdf"} onClick={() => setProofView("pdf")} role="tab" type="button">{t(locale, "proof.view.pdf")}</button>
         </div>
       </header>
 
-      {proofView === "performance" ? <PerformanceProof locale={locale} /> : <>
+      {proofView === "performance" ? <PerformanceProof locale={locale} /> : proofView === "pdf" ? <PdfRangeProof locale={locale} /> : <>
       <section className="proof-summary" aria-label={t(locale, "proof.journal")}>
         <div><span>{t(locale, "proof.journal")}</span><strong>{journal.length.toLocaleString("cs-CZ")} {t(locale, "proof.chunks")}</strong></div>
         <div><span>{t(locale, "proof.blocks")}</span><strong>{totalBlocks.toLocaleString("cs-CZ")}</strong></div>
