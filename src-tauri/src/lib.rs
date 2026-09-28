@@ -1,16 +1,123 @@
+pub mod story_store;
+
 use rusqlite::{params, Connection, MAIN_DB};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
+    io::Write,
+    collections::BTreeMap,
     sync::Mutex,
     time::Instant,
 };
+use tauri::Manager;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ProofRuntimeInfo {
     operating_system: &'static str,
     architecture: &'static str,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GlobalSettings {
+    locale: String,
+    theme_id: String,
+    ui_scale: u16,
+    reduce_motion: bool,
+    muted: bool,
+    typewriter_sounds: bool,
+    shortcut_overrides: BTreeMap<String, String>,
+}
+
+impl Default for GlobalSettings {
+    fn default() -> Self {
+        Self {
+            locale: "cs-CZ".to_owned(),
+            theme_id: "nightfall".to_owned(),
+            ui_scale: 100,
+            reduce_motion: false,
+            muted: false,
+            typewriter_sounds: false,
+            shortcut_overrides: BTreeMap::new(),
+        }
+    }
+}
+
+fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let directory = app.path().app_config_dir().map_err(|error| error.to_string())?;
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    Ok(directory.join("settings.json"))
+}
+
+fn append_local_error(app: &tauri::AppHandle, context: &str, error: &str) {
+    let Ok(directory) = app.path().app_log_dir() else { return };
+    if fs::create_dir_all(&directory).is_err() {
+        return;
+    }
+    let Ok(mut log) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(directory.join("figmentfell.log"))
+    else {
+        return;
+    };
+    let _ = writeln!(log, "{} | {} | {}", chrono_free_timestamp(), context, error);
+}
+
+fn chrono_free_timestamp() -> String {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs().to_string())
+        .unwrap_or_else(|_| "unknown-time".to_owned())
+}
+
+fn validate_settings(settings: &GlobalSettings) -> Result<(), String> {
+    if !matches!(settings.locale.as_str(), "cs-CZ" | "en-US") {
+        return Err("Unsupported locale.".to_owned());
+    }
+    if !matches!(settings.theme_id.as_str(), "nightfall" | "parchment") {
+        return Err("Unsupported theme.".to_owned());
+    }
+    if !(80..=150).contains(&settings.ui_scale) {
+        return Err("UI scale must be between 80 and 150 percent.".to_owned());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn load_global_settings(app: tauri::AppHandle) -> Result<GlobalSettings, String> {
+    let result: Result<GlobalSettings, String> = (|| -> Result<GlobalSettings, String> {
+        let path = settings_path(&app)?;
+        if !path.exists() {
+            return Ok(GlobalSettings::default());
+        }
+        let content = fs::read_to_string(path).map_err(|error| error.to_string())?;
+        let settings: GlobalSettings = serde_json::from_str(&content).map_err(|error| error.to_string())?;
+        validate_settings(&settings)?;
+        Ok(settings)
+    })();
+    if let Err(error) = &result {
+        append_local_error(&app, "load_global_settings", error);
+    }
+    result
+}
+
+#[tauri::command]
+fn save_global_settings(settings: GlobalSettings, app: tauri::AppHandle) -> Result<(), String> {
+    let result: Result<(), String> = (|| -> Result<(), String> {
+        validate_settings(&settings)?;
+        let path = settings_path(&app)?;
+        let temporary_path = path.with_extension("json.tmp");
+        let content = serde_json::to_vec_pretty(&settings).map_err(|error| error.to_string())?;
+        fs::write(&temporary_path, content).map_err(|error| error.to_string())?;
+        fs::rename(&temporary_path, &path).map_err(|error| error.to_string())?;
+        Ok(())
+    })();
+    if let Err(error) = &result {
+        append_local_error(&app, "save_global_settings", error);
+    }
+    result
 }
 
 #[derive(Serialize)]
@@ -412,6 +519,8 @@ pub fn run() {
         .manage(PdfProofStore::default())
         .invoke_handler(tauri::generate_handler![
             proof_runtime_info,
+            load_global_settings,
+            save_global_settings,
             run_storage_proof,
             run_recovery_proof,
             start_pdf_proof,

@@ -102,4 +102,14 @@ h1 { margin: 8px 0 12px; font-family: Georgia, serif; font-size: clamp(2rem, 5vw
 .recovery-proof-revisions div { display: grid; gap: 7px; padding: 13px; background: var(--ff-panel); }
 .recovery-proof-revisions span { color: var(--ff-text-secondary); font-size: .75rem; }
 .recovery-proof-revisions code { overflow-wrap: anywhere; color: var(--ff-text-primary); font: .8rem/1.45 ui-monospace, monospace; }
-@media (max-width: 720px) { .proof-shell { padding: 30px 18px; } .proof-summary, .proof-workspace, .proof-storage, .proof-decision, .performance-metrics, .performance-search, .recovery-proof-revisions { grid-template-columns: 1fr; } .proof-window { border-right: 0; border-bottom: 1px solid var(--ff-border); } }
+.foundation-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 26px 0 14px; border: 1px solid var(--ff-border); background: var(--ff-border); }
+.foundation-settings label { display: flex; gap: 10px; align-items: center; min-height: 58px; padding: 12px; color: var(--ff-text-secondary); background: var(--ff-panel); }
+.foundation-settings label:has(select), .foundation-settings label:has(input[type="range"]) { display: grid; grid-template-columns: 1fr auto; }
+.foundation-settings select { min-width: 130px; padding: 7px; color: var(--ff-text-primary); background: var(--ff-workspace); border: 1px solid var(--ff-border); }
+.foundation-settings input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--ff-accent); }
+.foundation-settings strong { grid-column: 2; grid-row: 1; color: var(--ff-accent); }
+.foundation-commands { margin-top: 26px; border: 1px solid var(--ff-border); }
+.foundation-commands h2 { margin: 0; padding: 13px; font-family: Georgia, serif; font-size: 1.2rem; font-weight: 500; background: var(--ff-panel); }
+.foundation-commands div { display: flex; justify-content: space-between; padding: 11px 13px; border-top: 1px solid var(--ff-border); }
+.foundation-commands kbd { color: var(--ff-accent); }
+@media (max-width: 720px) { .proof-shell { padding: 30px 18px; } .proof-summary, .proof-workspace, .proof-storage, .proof-decision, .performance-metrics, .performance-search, .recovery-proof-revisions, .foundation-settings { grid-template-columns: 1fr; } .proof-window { border-right: 0; border-bottom: 1px solid var(--ff-border); } }

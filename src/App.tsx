@@ -1,10 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type Locale, t } from "./i18n";
+import { t } from "./i18n";
 import { MilkdownChunkEditor } from "./proofs/MilkdownChunkEditor";
 import { PerformanceProof } from "./proofs/PerformanceProof";
 import { PdfRangeProof } from "./proofs/PdfRangeProof";
 import { RecoveryProof } from "./proofs/RecoveryProof";
+import { FoundationSettings } from "./foundation/FoundationSettings";
+import { defaultGlobalSettings, loadGlobalSettings, saveGlobalSettings, type GlobalSettings } from "./foundation/settings";
+import { applyTheme } from "./foundation/themes";
 import { buildSyntheticJournal, searchJournal } from "./proofs/syntheticJournal";
 import "./App.css";
 
@@ -22,9 +25,8 @@ type StorageProofResult = {
 };
 
 type EditorMode = "windowed" | "shared";
-type ProofView = "architecture" | "performance" | "pdf" | "recovery";
+type ProofView = "architecture" | "performance" | "pdf" | "recovery" | "settings";
 
-const locale: Locale = "cs-CZ";
 const windowRadius = 1;
 
 function App() {
@@ -40,10 +42,25 @@ function App() {
   const [editorMode, setEditorMode] = useState<EditorMode>("windowed");
   const [sharedMarkdown, setSharedMarkdown] = useState("");
   const [proofView, setProofView] = useState<ProofView>("architecture");
+  const [settings, setSettings] = useState<GlobalSettings>(defaultGlobalSettings);
+  const [settingsStatus, setSettingsStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
     void invoke<RuntimeInfo>("proof_runtime_info").then(setRuntimeInfo).catch(() => undefined);
   }, []);
+  useEffect(() => {
+    void loadGlobalSettings().then(setSettings).catch(() => setSettingsStatus("error"));
+  }, []);
+  useEffect(() => {
+    applyTheme(settings);
+  }, [settings]);
+
+  const updateSettings = (changes: Partial<GlobalSettings>) => {
+    const next = { ...settings, ...changes };
+    setSettings(next);
+    setSettingsStatus("saving");
+    void saveGlobalSettings(next).then(() => setSettingsStatus("saved")).catch(() => setSettingsStatus("error"));
+  };
 
   const start = Math.max(0, activeIndex - windowRadius);
   const end = Math.min(journal.length, activeIndex + windowRadius + 1);
@@ -58,6 +75,7 @@ function App() {
     setEditorMode("shared");
   };
   const editorMarkdown = editorMode === "shared" ? sharedMarkdown : activeChunk.markdown;
+  const locale = settings.locale;
 
   const runStorageProof = () => {
     setIsStorageProofRunning(true);
@@ -82,10 +100,11 @@ function App() {
           <button aria-selected={proofView === "performance"} onClick={() => setProofView("performance")} role="tab" type="button">{t(locale, "proof.view.performance")}</button>
           <button aria-selected={proofView === "pdf"} onClick={() => setProofView("pdf")} role="tab" type="button">{t(locale, "proof.view.pdf")}</button>
           <button aria-selected={proofView === "recovery"} onClick={() => setProofView("recovery")} role="tab" type="button">{t(locale, "proof.view.recovery")}</button>
+          <button aria-selected={proofView === "settings"} onClick={() => setProofView("settings")} role="tab" type="button">{t(locale, "proof.view.settings")}</button>
         </div>
       </header>
 
-      {proofView === "performance" ? <PerformanceProof locale={locale} /> : proofView === "pdf" ? <PdfRangeProof locale={locale} /> : proofView === "recovery" ? <RecoveryProof locale={locale} /> : <>
+      {proofView === "performance" ? <PerformanceProof locale={locale} /> : proofView === "pdf" ? <PdfRangeProof locale={locale} /> : proofView === "recovery" ? <RecoveryProof locale={locale} /> : proofView === "settings" ? <FoundationSettings locale={locale} onChange={updateSettings} settings={settings} status={settingsStatus} /> : <>
       <section className="proof-summary" aria-label={t(locale, "proof.journal")}>
         <div><span>{t(locale, "proof.journal")}</span><strong>{journal.length.toLocaleString("cs-CZ")} {t(locale, "proof.chunks")}</strong></div>
         <div><span>{t(locale, "proof.blocks")}</span><strong>{totalBlocks.toLocaleString("cs-CZ")}</strong></div>
