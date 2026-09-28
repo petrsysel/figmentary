@@ -10,6 +10,7 @@ use std::{
     time::Instant,
 };
 use tauri::Manager;
+use uuid::Uuid;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -117,6 +118,63 @@ fn save_global_settings(settings: GlobalSettings, app: tauri::AppHandle) -> Resu
     if let Err(error) = &result {
         append_local_error(&app, "save_global_settings", error);
     }
+    result
+}
+
+fn stories_directory(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let directory = app.path().app_data_dir().map_err(|error| error.to_string())?.join("Stories");
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    Ok(directory)
+}
+
+fn current_timestamp() -> Result<i64, String> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn list_stories(app: tauri::AppHandle) -> Result<Vec<story_store::StorySummary>, String> {
+    let result = (|| -> Result<Vec<story_store::StorySummary>, String> {
+        let mut stories = Vec::new();
+        for entry in fs::read_dir(stories_directory(&app)?).map_err(|error| error.to_string())? {
+            let entry = entry.map_err(|error| error.to_string())?;
+            let path = entry.path();
+            if path.extension().is_some_and(|extension| extension == "ffstory") {
+                let store = story_store::StoryStore::open(&path).map_err(|error| error.to_string())?;
+                stories.push(store.summary().map_err(|error| error.to_string())?);
+            }
+        }
+        stories.sort_by(|left, right| right.last_opened_at.cmp(&left.last_opened_at).then_with(|| right.updated_at.cmp(&left.updated_at)));
+        Ok(stories)
+    })();
+    if let Err(error) = &result { append_local_error(&app, "list_stories", error); }
+    result
+}
+
+#[tauri::command]
+fn create_story(title: String, app: tauri::AppHandle) -> Result<story_store::StorySummary, String> {
+    let result = (|| -> Result<story_store::StorySummary, String> {
+        let id = Uuid::new_v4().to_string();
+        let path = stories_directory(&app)?.join(format!("{id}.ffstory"));
+        let store = story_store::StoryStore::create(&path, &id, &title, current_timestamp()?).map_err(|error| error.to_string())?;
+        store.summary().map_err(|error| error.to_string())
+    })();
+    if let Err(error) = &result { append_local_error(&app, "create_story", error); }
+    result
+}
+
+#[tauri::command]
+fn open_story(id: String, app: tauri::AppHandle) -> Result<story_store::StorySummary, String> {
+    let result = (|| -> Result<story_store::StorySummary, String> {
+        let id = Uuid::parse_str(&id).map_err(|_| "Invalid story identifier.".to_owned())?.to_string();
+        let path = stories_directory(&app)?.join(format!("{id}.ffstory"));
+        if !path.is_file() { return Err("Story does not exist in the managed library.".to_owned()); }
+        let store = story_store::StoryStore::open(&path).map_err(|error| error.to_string())?;
+        store.mark_opened(current_timestamp()?).map_err(|error| error.to_string())
+    })();
+    if let Err(error) = &result { append_local_error(&app, "open_story", error); }
     result
 }
 
@@ -521,6 +579,9 @@ pub fn run() {
             proof_runtime_info,
             load_global_settings,
             save_global_settings,
+            list_stories,
+            create_story,
+            open_story,
             run_storage_proof,
             run_recovery_proof,
             start_pdf_proof,
