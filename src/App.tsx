@@ -4,6 +4,7 @@ import { type Locale, t } from "./i18n";
 import { MilkdownChunkEditor } from "./proofs/MilkdownChunkEditor";
 import { PerformanceProof } from "./proofs/PerformanceProof";
 import { PdfRangeProof } from "./proofs/PdfRangeProof";
+import { RecoveryProof } from "./proofs/RecoveryProof";
 import { buildSyntheticJournal, searchJournal } from "./proofs/syntheticJournal";
 import "./App.css";
 
@@ -21,7 +22,7 @@ type StorageProofResult = {
 };
 
 type EditorMode = "windowed" | "shared";
-type ProofView = "architecture" | "performance" | "pdf";
+type ProofView = "architecture" | "performance" | "pdf" | "recovery";
 
 const locale: Locale = "cs-CZ";
 const windowRadius = 1;
@@ -80,10 +81,11 @@ function App() {
           <button aria-selected={proofView === "architecture"} onClick={() => setProofView("architecture")} role="tab" type="button">{t(locale, "proof.view.architecture")}</button>
           <button aria-selected={proofView === "performance"} onClick={() => setProofView("performance")} role="tab" type="button">{t(locale, "proof.view.performance")}</button>
           <button aria-selected={proofView === "pdf"} onClick={() => setProofView("pdf")} role="tab" type="button">{t(locale, "proof.view.pdf")}</button>
+          <button aria-selected={proofView === "recovery"} onClick={() => setProofView("recovery")} role="tab" type="button">{t(locale, "proof.view.recovery")}</button>
         </div>
       </header>
 
-      {proofView === "performance" ? <PerformanceProof locale={locale} /> : proofView === "pdf" ? <PdfRangeProof locale={locale} /> : <>
+      {proofView === "performance" ? <PerformanceProof locale={locale} /> : proofView === "pdf" ? <PdfRangeProof locale={locale} /> : proofView === "recovery" ? <RecoveryProof locale={locale} /> : <>
       <section className="proof-summary" aria-label={t(locale, "proof.journal")}>
         <div><span>{t(locale, "proof.journal")}</span><strong>{journal.length.toLocaleString("cs-CZ")} {t(locale, "proof.chunks")}</strong></div>
         <div><span>{t(locale, "proof.blocks")}</span><strong>{totalBlocks.toLocaleString("cs-CZ")}</strong></div>

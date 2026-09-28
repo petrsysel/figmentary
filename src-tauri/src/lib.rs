@@ -23,6 +23,18 @@ struct StorageProofResult {
     elapsed_milliseconds: u128,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecoveryProofResult {
+    attachment_megabytes: usize,
+    snapshot_bytes: u64,
+    snapshot_revision: String,
+    current_revision: String,
+    recovered_revision: String,
+    rescue_revision: String,
+    elapsed_milliseconds: u128,
+}
+
 #[derive(Default)]
 struct PdfProofStore {
     state: Mutex<Option<PdfProofState>>,
@@ -170,6 +182,125 @@ fn run_storage_proof() -> Result<StorageProofResult, String> {
     }
 }
 
+fn create_sqlite_snapshot(connection: &Connection, destination: &std::path::Path) -> Result<(), String> {
+    let escaped_path = destination.to_string_lossy().replace('\'', "''");
+    connection
+        .execute_batch(&format!("VACUUM INTO '{escaped_path}';"))
+        .map_err(|error| error.to_string())
+}
+
+/// Phase 0 only: proves that a consistent SQLite snapshot can be restored
+/// without discarding the state that existed immediately before restoration.
+#[tauri::command]
+fn run_recovery_proof() -> Result<RecoveryProofResult, String> {
+    const ATTACHMENT_MEGABYTES: usize = 4;
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_nanos();
+    let proof_directory = std::env::temp_dir().join(format!(
+        "figmentfell-recovery-proof-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir(&proof_directory).map_err(|error| error.to_string())?;
+    let story_path = proof_directory.join("active.ffstory");
+    let snapshot_path = proof_directory.join("snapshot.ffstory");
+    let rescue_path = proof_directory.join("pre-restore.ffstory");
+    let restore_staging_path = proof_directory.join("restore-staging.ffstory");
+    let started = Instant::now();
+
+    let result = (|| -> Result<RecoveryProofResult, String> {
+        let connection = Connection::open(&story_path).map_err(|error| error.to_string())?;
+        connection
+            .execute_batch(
+                "
+                PRAGMA journal_mode = WAL;
+                CREATE TABLE documents (id TEXT PRIMARY KEY, markdown TEXT NOT NULL);
+                CREATE TABLE assets (id TEXT PRIMARY KEY, payload BLOB NOT NULL);
+                ",
+            )
+            .map_err(|error| error.to_string())?;
+        connection
+            .execute(
+                "INSERT INTO documents (id, markdown) VALUES ('journal', ?1)",
+                params!["# Journal\n\nRevision preserved by the first snapshot."],
+            )
+            .map_err(|error| error.to_string())?;
+        connection
+            .execute(
+                "INSERT INTO assets (id, payload) VALUES ('map', ?1)",
+                params![vec![0x5A_u8; ATTACHMENT_MEGABYTES * 1024 * 1024]],
+            )
+            .map_err(|error| error.to_string())?;
+
+        create_sqlite_snapshot(&connection, &snapshot_path)?;
+        let snapshot_revision: String = Connection::open(&snapshot_path)
+            .map_err(|error| error.to_string())?
+            .query_row("SELECT markdown FROM documents WHERE id = 'journal'", [], |row| row.get(0))
+            .map_err(|error| error.to_string())?;
+
+        connection
+            .execute(
+                "UPDATE documents SET markdown = ?1 WHERE id = 'journal'",
+                params!["# Journal\n\nNewer revision written after the first snapshot."],
+            )
+            .map_err(|error| error.to_string())?;
+        let current_revision: String = connection
+            .query_row("SELECT markdown FROM documents WHERE id = 'journal'", [], |row| row.get(0))
+            .map_err(|error| error.to_string())?;
+        create_sqlite_snapshot(&connection, &rescue_path)?;
+
+        // Checkpoint and leave WAL mode before replacing the active main file,
+        // so no stale sidecar can be associated with the restored database.
+        connection
+            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode = DELETE;")
+            .map_err(|error| error.to_string())?;
+        drop(connection);
+
+        fs::copy(&snapshot_path, &restore_staging_path).map_err(|error| error.to_string())?;
+        fs::rename(&restore_staging_path, &story_path).map_err(|error| error.to_string())?;
+
+        let recovered_connection = Connection::open(&story_path).map_err(|error| error.to_string())?;
+        let recovered_revision: String = recovered_connection
+            .query_row("SELECT markdown FROM documents WHERE id = 'journal'", [], |row| row.get(0))
+            .map_err(|error| error.to_string())?;
+        let recovered_attachment_bytes: i64 = recovered_connection
+            .query_row("SELECT length(payload) FROM assets WHERE id = 'map'", [], |row| row.get(0))
+            .map_err(|error| error.to_string())?;
+        let rescue_revision: String = Connection::open(&rescue_path)
+            .map_err(|error| error.to_string())?
+            .query_row("SELECT markdown FROM documents WHERE id = 'journal'", [], |row| row.get(0))
+            .map_err(|error| error.to_string())?;
+
+        if recovered_revision != snapshot_revision {
+            return Err("Restored story does not match the selected snapshot.".to_owned());
+        }
+        if rescue_revision != current_revision {
+            return Err("Pre-restore snapshot did not preserve the current story state.".to_owned());
+        }
+        if recovered_attachment_bytes != (ATTACHMENT_MEGABYTES * 1024 * 1024) as i64 {
+            return Err("Restored attachment is incomplete.".to_owned());
+        }
+
+        Ok(RecoveryProofResult {
+            attachment_megabytes: ATTACHMENT_MEGABYTES,
+            snapshot_bytes: fs::metadata(&snapshot_path).map_err(|error| error.to_string())?.len(),
+            snapshot_revision,
+            current_revision,
+            recovered_revision,
+            rescue_revision,
+            elapsed_milliseconds: started.elapsed().as_millis(),
+        })
+    })();
+
+    let cleanup_result = fs::remove_dir_all(&proof_directory);
+    match (result, cleanup_result) {
+        (Ok(result), Ok(())) => Ok(result),
+        (Ok(_), Err(error)) => Err(format!("Recovery proof passed, but cleanup failed: {error}")),
+        (Err(error), _) => Err(error),
+    }
+}
+
 fn append_pdf_object(buffer: &mut Vec<u8>, offsets: &mut Vec<usize>, id: usize, body: &[u8]) {
     offsets.push(buffer.len());
     buffer.extend_from_slice(format!("{id} 0 obj\n").as_bytes());
@@ -282,6 +413,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             proof_runtime_info,
             run_storage_proof,
+            run_recovery_proof,
             start_pdf_proof,
             read_pdf_proof_range,
             pdf_proof_metrics
