@@ -8,7 +8,7 @@ Baseline implementation direction:
 - Rust for native filesystem/persistence/import-export/backup integration
 - React + TypeScript frontend
 - Vite build tooling
-- Milkdown/ProseMirror-based rich Markdown editing, subject to a proof-of-concept for very large documents
+- Milkdown/ProseMirror-based rich Markdown editing; Phase 0 performance findings define the intended document-size guidance
 - Mozilla PDF.js for PDF rendering/search/navigation
 
 Do not use Electron, Next.js or a backend server.
@@ -105,19 +105,15 @@ Document types initially:
 
 Tab placement/order is workspace state.
 
-## Markdown storage and long-document virtualization
+## Markdown storage and long-document behavior
 
-Markdown is the durable source for text documents. Editor-specific transient state may exist, but do not make a proprietary rich-text JSON format the only copy of user writing.
+Markdown is the durable source for text documents. Editor-specific transient state may exist, but a proprietary rich-text JSON format must never be the only copy of user writing.
 
-A long Markdown document is one continuous document in the product model, but it should not be stored, loaded or rendered as one unbounded string/DOM tree. The persistence layer should support stable ordered chunks/segments that can be read and written independently. Chunk boundaries are an implementation detail and must never be exposed as pages or separate journal entries in the normal UX.
+One Markdown document is opened in one continuous Milkdown/ProseMirror instance. This intentionally prioritizes native editor semantics—selection, copy/paste, keyboard selection, IME and one undo/redo history—over practical unlimited size for one document. Do not implement a `LongDocumentController`, a pool of editors, editor chunk virtualization, or custom selection/undo bridging.
 
-Chunking must respect safe block boundaries. Do not split constructs such as fenced code blocks, lists, image/drawing references or other structured Markdown nodes arbitrarily by character count. Prefer stable chunk IDs so edits do not invalidate unrelated locations.
+Phase 0 performance proof results on the development environment found that 250,000-word realistic synthetic journals opened in roughly 8 seconds and remained usable; 500,000 words opened in roughly 24 seconds with noticeable but still usable editing degradation. These sizes are far beyond the expected normal journal. There is no hard document-size limit. Instead, the product offers per-document continuation guidance around 150,000–200,000 words and may repeat it only near a substantially higher threshold, initially around 400,000 words. Creating a continuation creates a new document and never automatically splits or moves user text.
 
-When a long journal opens, load the region around the last editing/reading position; for the common journal workflow this will normally be the most recent/end region. Load older/newer chunks on demand as the user scrolls or navigates. Content far outside the viewport should be eligible for virtualization/unmounting so the editor never requires the entire journal in the DOM.
-
-Whole-document operations must work independently of what is currently mounted in the editor. This includes search, outline generation, word/content metrics, bookmarks, navigation targets and PDF export. Jumping to an unloaded result must load the target chunk plus enough surrounding context before positioning the viewport/caret.
-
-The editor integration must preserve the illusion and behavior of one continuous document, including normal selection/editing across internal boundaries where feasible. If Milkdown/ProseMirror cannot support this architecture cleanly, Phase 0 must choose a different integration strategy rather than abandoning long-document virtualization.
+Whole-document operations, including search, outline generation, metrics, bookmarks, navigation and PDF export, operate over the active document's full Markdown source.
 
 Any editor-specific constructs must have a defined Markdown representation or an explicitly documented sidecar metadata mechanism.
 
@@ -171,7 +167,7 @@ Do not execute scripts from Markdown or imported content. Validate schemas, file
 
 Design/prototype against these scenarios early:
 
-- very long Markdown journal (hundreds to thousands of pages) with only a bounded working set loaded/rendered
+- long Markdown journal performance at 50,000, 100,000, 250,000 and 500,000 realistic synthetic words in one editor instance
 - story with several large PDFs and images
 - many persisted bookmarks
 - multiple tool widgets

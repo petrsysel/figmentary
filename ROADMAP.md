@@ -7,12 +7,12 @@ This roadmap is ordered to retire architectural risk early while keeping the pro
 Before building broad UI, prove the riskiest assumptions:
 
 1. Tauri 2 + React/TypeScript shell and native command boundary.
-2. Rich Markdown editor proof with a very large synthetic journal (hundreds to thousands of pages). Prototype stable block-aware chunking, opening near the last position/end, incremental loading while scrolling, unloading/virtualizing distant content, cross-chunk editing behavior, Markdown round-trip and image/custom-node strategy. Explicitly determine whether Milkdown/ProseMirror can support the required continuous-document UX without mounting the whole journal; change the editor integration strategy if it cannot.
+2. Rich Markdown performance proof with realistic synthetic journals in one Milkdown/ProseMirror instance. Measure editor readiness, editing at the end and middle, scrolling, selection, clipboard operations, undo/redo, search and distant navigation at 50,000, 100,000, 250,000 and 500,000 words. Preserve the proof as a technical artefact. Phase 0 decision: one Markdown document is one continuous Milkdown/ProseMirror instance; use non-blocking continuation guidance rather than editor chunking/virtualization for unusually large documents.
 3. PDF.js proof with a large local PDF accessed through the intended native/container mechanism; validate search and efficient loading.
-4. `.ffstory` persistence proof using SQLite/custom extension; validate independent chunk reads/writes and rebalancing while hundreds of MB of attachments exist. One keystroke must not rewrite the full Markdown document or unrelated chunks/assets.
+4. `.ffstory` persistence proof using SQLite/custom extension; validate ordinary Markdown writes while hundreds of MB of attachments exist. One edit must not rewrite the full story container or unrelated assets.
 5. Consistent backup/snapshot and recovery proof.
 
-Exit gate: no architecture may require rewriting/loading an entire large story or entire long Markdown journal for ordinary text edits. Search/bookmarks/navigation/export must still operate across unloaded chunks, and the user-facing document must remain continuous.
+Exit gate: no architecture may require rewriting/loading an entire large story, including unrelated attachments, for ordinary text edits. Markdown editing must retain one continuous editor's native selection, copy/paste, IME and undo/redo behavior. The large-document performance proof must inform the continuation-guidance thresholds.
 
 ## Phase 1 — Foundations
 

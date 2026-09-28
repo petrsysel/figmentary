@@ -55,11 +55,9 @@ Favor direct manipulation and keyboard flow. Common Markdown input conventions s
 
 Images can enter via clipboard paste, drag/drop, file insertion or Sketchbook. Preserve predictable cursor/focus behavior after insertion.
 
-Very long Markdown documents still appear and behave as one continuous document. Internal chunk/segment boundaries must never appear as pages, entries, loading separators or other user-visible structure.
+Each Markdown document is one continuous Milkdown/ProseMirror editor. Normal editor behavior has priority: selection, copy/paste, keyboard selection, IME, undo/redo, search and navigation work naturally across the whole document without internal boundaries.
 
-Opening a long journal should restore the last meaningful reading/editing position; for the usual append-at-the-end journal workflow this means opening near the latest content without first rendering the full history. Scrolling toward unloaded history progressively loads it, while distant content may be virtualized to keep interaction responsive.
-
-Search, bookmarks, outline and navigation cover the entire document, including unloaded content. Activating a result in an unloaded region loads it transparently and then jumps to the correct location. Very long documents must avoid whole-document DOM churn on each input.
+Very long documents remain permitted. At an approximate 150,000–200,000 words, show an unobtrusive guidance message explaining that opening and editing may slow down. `Create continuation…` creates and opens a new Markdown tab with a natural successor name such as `Journal II`; it does not edit, split or move the original journal. `Not now` dismisses the current threshold for that document. Do not repeat the message on every later edit; consider a later reminder only near a substantially higher threshold (initially around 400,000 words).
 
 ## Tools panel
 

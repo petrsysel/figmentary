@@ -50,23 +50,7 @@ Common:
 - updatedAt
 - asset/content reference
 
-Markdown documents are logically continuous but may store their Markdown source as an ordered sequence of independently persisted chunks rather than one giant value. PDF/image documents reference self-contained story assets.
-
-### MarkdownChunk
-
-Conceptual fields:
-
-- id (stable)
-- documentId
-- order/key used to reconstruct the document
-- Markdown source for this chunk
-- optional structural/index metadata
-- createdAt
-- updatedAt
-
-Chunk boundaries are internal implementation details and must occur at safe Markdown block boundaries. Rebalancing/splitting/merging chunks must preserve document order and update dependent anchors transactionally.
-
-A document may maintain derived indexes for headings, full-document search and content metrics so these operations do not require mounting every chunk in the editor. Derived indexes must be rebuildable from authoritative Markdown content.
+Markdown documents store one durable Markdown source and open in one continuous Milkdown/ProseMirror editor instance. Derived indexes for headings, full-document search and content metrics are rebuildable from authoritative Markdown content. PDF/image documents reference self-contained story assets.
 
 ## Bookmark
 
@@ -76,7 +60,16 @@ A document may maintain derived indexes for headings, full-document search and c
 - color
 - location
 
-Markdown location should use a resilient anchor such as `chunkId` + stable block/anchor identity + local offset/affinity, rather than a document-wide raw character offset. Anchors must survive edits in unrelated chunks and support loading an unloaded target on demand. PDF location contains page and positional information.
+Markdown location should use a resilient document anchor, such as a structural context plus local text/offset/affinity, rather than only a raw character offset. It must survive unrelated edits where feasible. PDF location contains page and positional information.
+
+## Long-document guidance state
+
+Per Markdown document:
+
+- last guidance threshold shown or dismissed
+- optional word-count snapshot at dismissal
+
+This state prevents the continuation guidance from reappearing on every subsequent edit. It does not impose a maximum size or alter document content.
 
 ## Drawing
 

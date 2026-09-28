@@ -67,7 +67,15 @@ Editing should feel Notion-like: Markdown syntax produces rich rendered structur
 
 Required capabilities include rich Markdown editing, headings/outline, current-document search, arbitrary bookmarks, images, drawings, undo/redo and keyboard-first commands.
 
-Hundreds of pages of Markdown must remain responsive. Do not implement an editor architecture that serializes/re-renders the entire document on every keystroke.
+Each Markdown document is one continuous Milkdown/ProseMirror instance. Preserving natural editor behavior—selection, copy/paste, keyboard selection, IME and undo/redo across the entire document—takes precedence over unbounded scaling of a single document. Stories can contain any number of Markdown documents/tabs, so journals may naturally continue in a new document.
+
+Very long documents remain allowed without a hard word-count limit and are never automatically split or moved. Around 150,000–200,000 words, show a non-blocking, per-document guidance message:
+
+> This journal is getting rather large.
+>
+> Long journals may take longer to open and edit. For the best writing experience, consider continuing in a new document.
+
+Actions are `Create continuation…` and `Not now`. Creating a continuation creates and opens a new Markdown document, for example `Journal II`; it never changes the original document. After dismissal, do not show the same guidance on every subsequent edit. A later reminder may appear only at a substantially higher threshold (initially around 400,000 words). Exact thresholds may be tuned by UX research.
 
 ## PDF and image documents
 
