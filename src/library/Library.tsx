@@ -9,7 +9,7 @@ function formattedDate(timestamp: number | undefined, locale: Locale) {
   return timestamp ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(timestamp * 1000)) : "—";
 }
 
-export function Library({ locale }: { locale: Locale }) {
+export function Library({ locale, onOpen }: { locale: Locale; onOpen: (id: string) => void }) {
   const [stories, setStories] = useState<StorySummary[]>([]);
   const [title, setTitle] = useState("");
   const [view, setView] = useState<LibraryView>("cover");
@@ -23,7 +23,7 @@ export function Library({ locale }: { locale: Locale }) {
   };
   const open = async (id: string) => {
     setStatus("working");
-    try { await invoke<StorySummary>("open_story", { id }); await refresh(); setStatus("idle"); } catch { setStatus("error"); }
+    try { await invoke<StorySummary>("open_story", { id }); await refresh(); setStatus("idle"); onOpen(id); } catch { setStatus("error"); }
   };
 
   return <section className="library" aria-label={t(locale, "library.title")}>

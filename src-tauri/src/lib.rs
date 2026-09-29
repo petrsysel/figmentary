@@ -6,7 +6,7 @@ use std::{
     fs,
     io::Write,
     collections::BTreeMap,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::Instant,
 };
 use tauri::Manager;
@@ -178,6 +178,60 @@ fn open_story(id: String, app: tauri::AppHandle) -> Result<story_store::StorySum
     result
 }
 
+fn managed_story_path(app: &tauri::AppHandle, id: &str) -> Result<std::path::PathBuf, String> {
+    let id = Uuid::parse_str(id).map_err(|_| "Invalid story identifier.".to_owned())?.to_string();
+    let path = stories_directory(app)?.join(format!("{id}.ffstory"));
+    if !path.is_file() { return Err("Story does not exist in the managed library.".to_owned()); }
+    Ok(path)
+}
+
+#[tauri::command]
+fn load_story_workspace(id: String, app: tauri::AppHandle) -> Result<story_store::StoryWorkspace, String> {
+    let result = (|| {
+        let store = story_store::StoryStore::open(&managed_story_path(&app, &id)?).map_err(|error| error.to_string())?;
+        store.workspace().map_err(|error| error.to_string())
+    })();
+    if let Err(error) = &result { append_local_error(&app, "load_story_workspace", error); }
+    result
+}
+
+#[tauri::command]
+async fn save_markdown_document(id: String, document_id: String, markdown: String, app: tauri::AppHandle, coordinator: tauri::State<'_, StoryWriteCoordinator>) -> Result<(), String> {
+    let task_app = app.clone();
+    let write_lock = coordinator.0.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = write_lock.lock().map_err(|error| error.to_string())?;
+        let store = story_store::StoryStore::open(&managed_story_path(&task_app, &id)?).map_err(|error| error.to_string())?;
+        store.save_markdown(&document_id, &markdown, current_timestamp()?).map_err(|error| error.to_string())
+    }).await.map_err(|error| error.to_string())?;
+    if let Err(error) = &result { append_local_error(&app, "save_markdown_document", error); }
+    result
+}
+
+#[tauri::command]
+fn create_markdown_document(id: String, title: String, app: tauri::AppHandle) -> Result<story_store::StoryDocument, String> {
+    let result = (|| {
+        let store = story_store::StoryStore::open(&managed_story_path(&app, &id)?).map_err(|error| error.to_string())?;
+        store.create_markdown_document(&title, current_timestamp()?).map_err(|error| error.to_string())
+    })();
+    if let Err(error) = &result { append_local_error(&app, "create_markdown_document", error); }
+    result
+}
+
+#[tauri::command]
+async fn save_workspace_layout(id: String, workspace_layout_json: String, app: tauri::AppHandle, coordinator: tauri::State<'_, StoryWriteCoordinator>) -> Result<(), String> {
+    serde_json::from_str::<serde_json::Value>(&workspace_layout_json).map_err(|error| error.to_string())?;
+    let task_app = app.clone();
+    let write_lock = coordinator.0.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = write_lock.lock().map_err(|error| error.to_string())?;
+        let store = story_store::StoryStore::open(&managed_story_path(&task_app, &id)?).map_err(|error| error.to_string())?;
+        store.save_layout(&workspace_layout_json, current_timestamp()?).map_err(|error| error.to_string())
+    }).await.map_err(|error| error.to_string())?;
+    if let Err(error) = &result { append_local_error(&app, "save_workspace_layout", error); }
+    result
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StorageProofResult {
@@ -204,6 +258,11 @@ struct RecoveryProofResult {
 struct PdfProofStore {
     state: Mutex<Option<PdfProofState>>,
 }
+
+/// Separate native commands open separate SQLite connections; this lock keeps
+/// their writes ordered while preserving concurrent reads and UI responsiveness.
+#[derive(Clone, Default)]
+struct StoryWriteCoordinator(Arc<Mutex<()>>);
 
 struct PdfProofState {
     directory: std::path::PathBuf,
@@ -575,6 +634,7 @@ fn pdf_proof_metrics(store: tauri::State<PdfProofStore>) -> Result<PdfProofMetad
 pub fn run() {
     tauri::Builder::default()
         .manage(PdfProofStore::default())
+        .manage(StoryWriteCoordinator::default())
         .invoke_handler(tauri::generate_handler![
             proof_runtime_info,
             load_global_settings,
@@ -582,6 +642,10 @@ pub fn run() {
             list_stories,
             create_story,
             open_story,
+            load_story_workspace,
+            save_markdown_document,
+            create_markdown_document,
+            save_workspace_layout,
             run_storage_proof,
             run_recovery_proof,
             start_pdf_proof,
