@@ -18,7 +18,7 @@ function App() {
   }, [settings]);
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell${openStoryId ? " app-shell--workspace" : " app-shell--library"}`}>
       {openStoryId ? <Workspace locale={settings.locale} onExit={() => setOpenStoryId(undefined)} storyId={openStoryId} /> : <Library locale={settings.locale} onOpen={setOpenStoryId} />}
     </main>
   );
