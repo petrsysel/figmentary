@@ -13,7 +13,7 @@ Baseline implementation direction:
 
 Do not use Electron, Next.js or a backend server.
 
-Library choices are implementation details and may change after proof-of-concept, but changes must preserve the requirements in `PRODUCT.md` and should be documented.
+Library choices are implementation details, but changes must preserve the requirements in `PRODUCT.md` and should be documented.
 
 ## Architectural boundaries
 
@@ -71,13 +71,13 @@ Reasons:
 - one portable user-facing file
 - snapshot/backup options
 
-This decision requires an early proof-of-concept before being treated as irreversible.
+This direction was accepted when Phase 0 was closed. A later change must preserve the one-file user experience and incremental writes.
 
 ### Large attachment constraint
 
 A story may contain hundreds of megabytes of PDFs/images. Editing one character must not rewrite/copy all attachments or load them into memory.
 
-Prototype and measure SQLite BLOB access/streaming with large PDFs. If direct BLOB storage creates unacceptable renderer/streaming behavior, retain the one-file user experience with an alternative container strategy that supports random/incremental access. Do not silently fall back to rewriting ZIP archives on every save.
+SQLite BLOB access to large PDFs must support efficient byte-range reads. If direct BLOB storage creates unacceptable renderer/streaming behavior, retain the one-file user experience with an alternative container strategy that supports random/incremental access. Do not silently fall back to rewriting ZIP archives on every save.
 
 ## Autosave
 

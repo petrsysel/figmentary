@@ -2,11 +2,12 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::{fmt, path::Path};
 
-pub const CURRENT_FORMAT_VERSION: i64 = 2;
+pub const CURRENT_FORMAT_VERSION: i64 = 3;
 
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, "CREATE TABLE story_metadata (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), format_version INTEGER NOT NULL, story_id TEXT NOT NULL UNIQUE, title TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, last_opened_at INTEGER, cover_definition_json TEXT NOT NULL DEFAULT '{}', appearance_json TEXT NOT NULL DEFAULT '{}', workspace_layout_json TEXT NOT NULL DEFAULT '{}');"),
     (2, "CREATE TABLE documents (id TEXT PRIMARY KEY, type TEXT NOT NULL CHECK (type IN ('markdown', 'pdf', 'image')), title TEXT NOT NULL, markdown TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL); INSERT INTO documents (id, type, title, markdown, created_at, updated_at) SELECT 'journal', 'markdown', 'Journal', '# Journal\\n\\n', created_at, updated_at FROM story_metadata; UPDATE story_metadata SET workspace_layout_json = '{\"left\":{\"tabs\":[\"journal\"],\"activeTabId\":\"journal\"},\"right\":{\"tabs\":[],\"activeTabId\":null},\"sizes\":[45,35,20],\"collapsed\":[false,false,false]}' WHERE workspace_layout_json = '{}';"),
+    (3, "UPDATE documents SET markdown = '# Journal' || char(10) || char(10) WHERE id = 'journal' AND type = 'markdown' AND markdown = '# Journal' || char(92) || 'n' || char(92) || 'n';"),
 ];
 
 #[derive(Debug)]
@@ -26,10 +27,12 @@ impl StoryStore {
     pub fn open(path: &Path) -> Result<Self, StoryStoreError> { let mut connection = Connection::open(path)?; connection.busy_timeout(std::time::Duration::from_secs(3))?; connection.execute_batch("PRAGMA foreign_keys = ON;")?; migrate(&mut connection)?; Ok(Self { connection }) }
     pub fn create(path: &Path, id: &str, title: &str, timestamp: i64) -> Result<Self, StoryStoreError> {
         if title.trim().is_empty() { return Err(StoryStoreError::InvalidTitle); }
-        let store = Self::open(path)?;
-        store.connection.execute("INSERT INTO story_metadata (singleton, format_version, story_id, title, created_at, updated_at, last_opened_at) VALUES (1, ?1, ?2, ?3, ?4, ?4, ?4)", params![CURRENT_FORMAT_VERSION, id, title.trim(), timestamp])?;
-        store.connection.execute("INSERT INTO documents (id, type, title, markdown, created_at, updated_at) VALUES ('journal', 'markdown', 'Journal', '# Journal\\n\\n', ?1, ?1)", [timestamp])?;
-        store.connection.execute("UPDATE story_metadata SET workspace_layout_json = ?1 WHERE singleton = 1", [default_layout_json()])?;
+        let mut store = Self::open(path)?;
+        let transaction = store.connection.transaction()?;
+        transaction.execute("INSERT INTO story_metadata (singleton, format_version, story_id, title, created_at, updated_at, last_opened_at) VALUES (1, ?1, ?2, ?3, ?4, ?4, ?4)", params![CURRENT_FORMAT_VERSION, id, title.trim(), timestamp])?;
+        transaction.execute("INSERT INTO documents (id, type, title, markdown, created_at, updated_at) VALUES ('journal', 'markdown', 'Journal', ?1, ?2, ?2)", params!["# Journal\n\n", timestamp])?;
+        transaction.execute("UPDATE story_metadata SET workspace_layout_json = ?1 WHERE singleton = 1", [default_layout_json()])?;
+        transaction.commit()?;
         Ok(store)
     }
     pub fn summary(&self) -> Result<StorySummary, StoryStoreError> { Ok(self.connection.query_row("SELECT story_id, title, created_at, updated_at, last_opened_at FROM story_metadata WHERE singleton = 1", [], |r| Ok(StorySummary { id:r.get(0)?, title:r.get(1)?, created_at:r.get(2)?, updated_at:r.get(3)?, last_opened_at:r.get(4)? }))?) }
@@ -40,13 +43,15 @@ impl StoryStore {
         let documents = statement.query_map([], |r| Ok(StoryDocument { id:r.get(0)?, document_type:r.get(1)?, title:r.get(2)?, markdown:r.get(3)?, updated_at:r.get(4)? }))?.collect::<Result<Vec<_>, _>>()?;
         Ok(StoryWorkspace { story:self.summary()?, documents, workspace_layout_json:layout })
     }
-    pub fn save_markdown(&self, document_id: &str, markdown: &str, timestamp: i64) -> Result<(), StoryStoreError> { let changed=self.connection.execute("UPDATE documents SET markdown = ?1, updated_at = ?2 WHERE id = ?3 AND type = 'markdown'", params![markdown, timestamp, document_id])?; if changed == 0 { return Err(StoryStoreError::Database(rusqlite::Error::QueryReturnedNoRows)); } self.connection.execute("UPDATE story_metadata SET updated_at = ?1 WHERE singleton = 1", [timestamp])?; Ok(()) }
-    pub fn create_markdown_document(&self, title: &str, timestamp: i64) -> Result<StoryDocument, StoryStoreError> {
+    pub fn save_markdown(&mut self, document_id: &str, markdown: &str, timestamp: i64) -> Result<(), StoryStoreError> { let transaction=self.connection.transaction()?; let changed=transaction.execute("UPDATE documents SET markdown = ?1, updated_at = ?2 WHERE id = ?3 AND type = 'markdown'", params![markdown, timestamp, document_id])?; if changed == 0 { return Err(StoryStoreError::Database(rusqlite::Error::QueryReturnedNoRows)); } transaction.execute("UPDATE story_metadata SET updated_at = ?1 WHERE singleton = 1", [timestamp])?; transaction.commit()?; Ok(()) }
+    pub fn create_markdown_document(&mut self, title: &str, timestamp: i64) -> Result<StoryDocument, StoryStoreError> {
         if title.trim().is_empty() { return Err(StoryStoreError::InvalidTitle); }
         let id = uuid::Uuid::new_v4().to_string();
         let markdown = format!("# {}\n\n", title.trim());
-        self.connection.execute("INSERT INTO documents (id, type, title, markdown, created_at, updated_at) VALUES (?1, 'markdown', ?2, ?3, ?4, ?4)", params![id, title.trim(), markdown, timestamp])?;
-        self.connection.execute("UPDATE story_metadata SET updated_at = ?1 WHERE singleton = 1", [timestamp])?;
+        let transaction = self.connection.transaction()?;
+        transaction.execute("INSERT INTO documents (id, type, title, markdown, created_at, updated_at) VALUES (?1, 'markdown', ?2, ?3, ?4, ?4)", params![id, title.trim(), markdown, timestamp])?;
+        transaction.execute("UPDATE story_metadata SET updated_at = ?1 WHERE singleton = 1", [timestamp])?;
+        transaction.commit()?;
         Ok(StoryDocument { id, document_type: "markdown".to_owned(), title: title.trim().to_owned(), markdown: Some(markdown), updated_at: timestamp })
     }
     pub fn save_layout(&self, layout: &str, timestamp: i64) -> Result<(), StoryStoreError> { self.connection.execute("UPDATE story_metadata SET workspace_layout_json = ?1, updated_at = ?2 WHERE singleton = 1", params![layout, timestamp])?; Ok(()) }

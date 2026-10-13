@@ -201,7 +201,7 @@ async fn save_markdown_document(id: String, document_id: String, markdown: Strin
     let write_lock = coordinator.0.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let _guard = write_lock.lock().map_err(|error| error.to_string())?;
-        let store = story_store::StoryStore::open(&managed_story_path(&task_app, &id)?).map_err(|error| error.to_string())?;
+        let mut store = story_store::StoryStore::open(&managed_story_path(&task_app, &id)?).map_err(|error| error.to_string())?;
         store.save_markdown(&document_id, &markdown, current_timestamp()?).map_err(|error| error.to_string())
     }).await.map_err(|error| error.to_string())?;
     if let Err(error) = &result { append_local_error(&app, "save_markdown_document", error); }
@@ -211,7 +211,7 @@ async fn save_markdown_document(id: String, document_id: String, markdown: Strin
 #[tauri::command]
 fn create_markdown_document(id: String, title: String, app: tauri::AppHandle) -> Result<story_store::StoryDocument, String> {
     let result = (|| {
-        let store = story_store::StoryStore::open(&managed_story_path(&app, &id)?).map_err(|error| error.to_string())?;
+        let mut store = story_store::StoryStore::open(&managed_story_path(&app, &id)?).map_err(|error| error.to_string())?;
         store.create_markdown_document(&title, current_timestamp()?).map_err(|error| error.to_string())
     })();
     if let Err(error) = &result { append_local_error(&app, "create_markdown_document", error); }

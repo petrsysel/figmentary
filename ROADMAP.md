@@ -2,17 +2,11 @@
 
 This roadmap is ordered to retire architectural risk early while keeping the product's intended polish in scope. It is not permission to permanently defer design, accessibility, localization or atmosphere.
 
-## Phase 0 — Technical proofs
+## Phase 0 — Closed technical decisions
 
-Before building broad UI, prove the riskiest assumptions:
+Closed by product-owner decision. Existing technical artifacts may remain in the repository, but further proof-only code and repeated proof runs are not required to proceed.
 
-1. Tauri 2 + React/TypeScript shell and native command boundary.
-2. Rich Markdown performance proof with realistic synthetic journals in one Milkdown/ProseMirror instance. Measure editor readiness, editing at the end and middle, scrolling, selection, clipboard operations, undo/redo, search and distant navigation at 50,000, 100,000, 250,000 and 500,000 words. Preserve the proof as a technical artefact. Phase 0 decision: one Markdown document is one continuous Milkdown/ProseMirror instance; use non-blocking continuation guidance rather than editor chunking/virtualization for unusually large documents.
-3. PDF.js proof with a large local PDF accessed through the intended native/container mechanism; validate search and efficient loading.
-4. `.ffstory` persistence proof using SQLite/custom extension; validate ordinary Markdown writes while hundreds of MB of attachments exist. One edit must not rewrite the full story container or unrelated assets.
-5. Consistent backup/snapshot and recovery proof.
-
-Exit gate: no architecture may require rewriting/loading an entire large story, including unrelated attachments, for ordinary text edits. Markdown editing must retain one continuous editor's native selection, copy/paste, IME and undo/redo behavior. The large-document performance proof must inform the continuation-guidance thresholds.
+The accepted direction is Tauri 2 with React/TypeScript, one continuous Milkdown/ProseMirror instance per Markdown document, PDF.js with efficient access to story assets, and a portable SQLite-backed `.ffstory` container. Long documents receive non-blocking continuation guidance rather than automatic splitting. Ordinary edits must not load or rewrite unrelated large attachments. Backup and recovery remain product requirements.
 
 ## Phase 1 — Foundations
 

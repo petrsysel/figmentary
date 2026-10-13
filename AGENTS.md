@@ -34,13 +34,13 @@ Preserve these constraints:
 - a generic widget-based Tools panel;
 - themes, localization, accessibility, atmosphere, sound, and motion are product architecture, not optional late-stage extras;
 - user content and long-running stories must remain durable and portable;
-- very long journals must scale without requiring the entire document to be loaded/rendered at once.
+- very long journals remain allowed without a hard limit; unusually large documents receive non-blocking guidance to continue in a new document.
 
 Do not reduce the intended product to a generic text-editor MVP unless explicitly instructed.
 
 ## Implementation approach
 
-Follow `ROADMAP.md`. In particular, complete and evaluate Phase 0 technical proofs before committing the application to risky architectural assumptions.
+Follow `ROADMAP.md`. Phase 0 has been accepted and closed by the product owner. Preserve its architectural decisions and existing proof artifacts, but do not add further proof-only code or repeat proof work unless explicitly requested.
 
 Work in small, understandable increments. Prefer completing one coherent vertical or technical slice over scattering unfinished scaffolding across many unrelated features.
 
@@ -67,17 +67,13 @@ Do not introduce a backend server, Next.js, Electron, or a large global state fr
 
 ## Markdown and long-document architecture
 
-A Markdown document is one continuous document from the user's perspective.
+A Markdown document uses one continuous Milkdown/ProseMirror editor instance. Preserve native selection, copy/paste, keyboard selection, IME, and undo/redo across the whole document. Do not introduce editor chunking, a pool of editors, or custom selection/undo bridging.
 
-Its internal representation may be split into stable, block-aware chunks so that very long journals can be loaded and edited incrementally. Chunk boundaries are an implementation detail and must never become visible as pages/files/sections imposed on the user.
+Markdown remains the durable text source. Search, bookmarks, outline generation, navigation, export, and document-wide metrics operate over the complete document.
 
-Do not split Markdown blindly by character count. Preserve structural block boundaries.
+Very long documents have no hard size limit and are never split automatically. Around 150,000–200,000 words, show non-blocking, per-document guidance that opening and editing may slow down and offer to create a new continuation document. Dismissing the guidance must not cause it to reappear on every edit; a later reminder may appear around 400,000 words. Creating a continuation never moves or changes the original document.
 
-Search, bookmarks, outline generation, navigation, export, and document-wide metrics must operate over the complete logical document, including content not currently mounted in the editor.
-
-Opening a long journal should be able to restore the relevant recent/last position without loading the complete document. Older/newer regions should be loadable around navigation and scrolling as needed.
-
-The Milkdown/ProseMirror integration is subject to the Phase 0 proof. If the chosen editor architecture fights these requirements, report the limitation and propose alternatives rather than weakening the requirements silently.
+The Phase 0 performance proof informs these guidance thresholds. If future measurements reveal a serious editor limitation, explain it and propose options before changing the intended behavior.
 
 ## Persistence and data safety
 
@@ -122,6 +118,8 @@ UI scaling and Reduce Motion must remain functional as features are added.
 Do not create automated tests or a test suite unless explicitly requested.
 
 Do not spend implementation time adding unit, integration, snapshot, or end-to-end test infrastructure by default.
+
+Do not add demonstration or proof code solely to show that an established dependency or already accepted technical approach works unless explicitly requested.
 
 Instead, after meaningful changes, use the applicable existing validation tools such as:
 
