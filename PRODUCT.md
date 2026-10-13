@@ -1,10 +1,10 @@
-# FigmentFell — Product Specification
+# Figmentary — Product Specification
 
 ## Product vision
 
-FigmentFell is a polished offline desktop workspace for solo journaling role-playing games. It should feel less like an IDE or database and more like a quiet, luxurious digital writing desk.
+Figmentary is a polished offline desktop workspace for solo journaling role-playing games. It should feel less like an IDE or database and more like a quiet, luxurious digital writing desk.
 
-The core problem is speed: physical journaling RPGs can be atmospheric, but handwriting and managing physical components can lag behind the player's imagination. FigmentFell keeps the tactile atmosphere while making writing, lookup and game-state management fast.
+The core problem is speed: physical journaling RPGs can be atmospheric, but handwriting and managing physical components can lag behind the player's imagination. Figmentary keeps the tactile atmosphere while making writing, lookup and game-state management fast.
 
 ## Product principles
 
@@ -19,7 +19,7 @@ The core problem is speed: physical journaling RPGs can be atmospheric, but hand
 
 ## Library
 
-On launch, show a short splash (roughly 1–1.5 s) with a slowly appearing FigmentFell identity on a muted dark-blue subtly textured background. Avoid a spinner unless startup genuinely requires waiting.
+On launch, show a short splash (roughly 1–1.5 s) with a slowly appearing Figmentary identity on a muted dark-blue subtly textured background. Avoid a spinner unless startup genuinely requires waiting.
 
 The library supports two views from the beginning:
 
@@ -45,7 +45,7 @@ Any open story can be saved as a template from the story menu. The user explicit
 
 A template stores configuration/default state, not played state. Decks store their definition/default composition, not current draw/discard/table state. Trackers may define a chosen default value.
 
-Templates are portable `.fftemplate` files.
+Templates are portable `.figtemplate` files.
 
 ## Main workspace
 
@@ -55,7 +55,7 @@ The primary layout is three resizable vertical regions:
 
 All regions can collapse. Split sizes and collapsed state persist per story.
 
-Both document panels are identical. Each supports multiple tabs containing Markdown, PDF or images. Tabs can be reordered and dragged between panels. FigmentFell must not impose “rules” versus “journal” semantics.
+Both document panels are identical. Each supports multiple tabs containing Markdown, PDF or images. Tabs can be reordered and dragged between panels. Figmentary must not impose “rules” versus “journal” semantics.
 
 The Tools panel is one vertically scrollable workspace containing user-arranged widget instances. Widgets can be added, removed, collapsed and reordered; relevant widgets can also have persistent custom heights.
 
@@ -130,7 +130,7 @@ Ship a classic 52-card deck plus jokers as a default option. Support multiple in
 
 A deck definition contains cards, copy counts, default configuration and a chosen card back. Provide several polished built-in backs. Custom cards have a name, description and optional front image/design; without an image, render an elegant text card based on deck styling.
 
-Decks are portable `.ffdeck` files.
+Decks are portable `.figdeck` files.
 
 Persistent runtime deck state has three conceptual areas:
 
@@ -165,7 +165,7 @@ On completion, insert the drawing into Markdown as an image while retaining edit
 
 Themes are arbitrary appearance definitions; do not encode a dark/light binary.
 
-There is a global default theme and an optional per-story custom theme/override. Themes are portable `.fftheme` files.
+There is a global default theme and an optional per-story custom theme/override. Themes are portable `.figtheme` files.
 
 Theme controls include workspace background, panel background, document background, toolbar/menu, primary and secondary text, accent, borders/decorations, selection/highlight, curated texture and texture intensity, and ornament style.
 
@@ -248,7 +248,7 @@ Managed user directories:
 
 Settings can reveal/open these folders and change their locations.
 
-Opening/importing a FigmentFell story from elsewhere copies/imports it into the managed Stories library rather than editing the external source in place.
+Opening/importing a Figmentary story from elsewhere copies/imports it into the managed Stories library rather than editing the external source in place.
 
 ## PDF export
 

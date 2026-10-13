@@ -20,7 +20,7 @@ export function PdfRangeProof({ locale }: { locale: Locale }) {
   const [metadata, setMetadata] = useState<PdfProofMetadata>();
   const [loadMilliseconds, setLoadMilliseconds] = useState<number>();
   const [pageText, setPageText] = useState("");
-  const [query, setQuery] = useState("FigmentFell");
+  const [query, setQuery] = useState("Figmentary");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -37,7 +37,7 @@ export function PdfRangeProof({ locale }: { locale: Locale }) {
       transport.requestDataRange = (begin, end) => {
         void invoke<number[]>("read_pdf_proof_range", { begin, end })
           .then((bytes) => transport.onDataRange(begin, new Uint8Array(bytes)))
-          .catch((rangeError) => console.error("FigmentFell PDF range request failed", rangeError));
+          .catch((rangeError) => console.error("Figmentary PDF range request failed", rangeError));
       };
       const loadingTask = getDocument({
         range: transport,
@@ -59,7 +59,7 @@ export function PdfRangeProof({ locale }: { locale: Locale }) {
       setMetadata(await invoke<PdfProofMetadata>("pdf_proof_metrics"));
       await document.destroy();
     } catch (proofError) {
-      console.error("FigmentFell PDF proof failed", proofError);
+      console.error("Figmentary PDF proof failed", proofError);
       setError(proofError instanceof Error ? proofError.message : String(proofError));
     } finally {
       setIsLoading(false);

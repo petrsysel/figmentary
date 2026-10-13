@@ -46,7 +46,7 @@ fn file_error(error: impl fmt::Display) -> TransferError {
 
 fn inspect_source(path: &Path) -> Result<Connection, TransferError> {
     if !path.is_file() || !is_story_path(path) {
-        return Err(invalid("Expected a .ffstory file"));
+        return Err(invalid("Expected a .figstory file"));
     }
     let connection = Connection::open_with_flags(
         path,
@@ -106,7 +106,7 @@ fn inspect_source(path: &Path) -> Result<Connection, TransferError> {
 fn is_story_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("ffstory"))
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("figstory"))
 }
 
 fn snapshot_into(connection: &Connection, destination: &Path) -> Result<(), TransferError> {
@@ -127,7 +127,7 @@ pub fn import_story(
     let connection = inspect_source(source)?;
     let id = Uuid::new_v4().to_string();
     let staging = stories_directory.join(format!(".import-{id}.tmp"));
-    let destination = stories_directory.join(format!("{id}.ffstory"));
+    let destination = stories_directory.join(format!("{id}.figstory"));
     if staging.exists() || destination.exists() {
         return Err(TransferError::ExistingFile);
     }
@@ -150,7 +150,7 @@ pub fn import_story(
 
 pub fn export_story(source: &Path, destination: &Path) -> Result<(), TransferError> {
     if !is_story_path(destination) {
-        return Err(file_error("Choose a .ffstory destination"));
+        return Err(file_error("Choose a .figstory destination"));
     }
     if destination.exists() {
         return Err(TransferError::ExistingFile);
@@ -159,7 +159,7 @@ pub fn export_story(source: &Path, destination: &Path) -> Result<(), TransferErr
     let parent = destination
         .parent()
         .ok_or_else(|| file_error("Missing destination directory"))?;
-    let staging = parent.join(format!(".figmentfell-export-{}.tmp", Uuid::new_v4()));
+    let staging = parent.join(format!(".figmentary-export-{}.tmp", Uuid::new_v4()));
     let result = (|| {
         snapshot_into(&connection, &staging)?;
         drop(connection);
@@ -215,7 +215,7 @@ pub fn suggested_file_name(title: &str) -> String {
         .collect();
     let safe = safe.trim().trim_matches('.');
     format!(
-        "{}.ffstory",
-        if safe.is_empty() { "FigmentFell" } else { safe }
+        "{}.figstory",
+        if safe.is_empty() { "Figmentary" } else { safe }
     )
 }

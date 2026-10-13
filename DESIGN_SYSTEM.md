@@ -1,8 +1,8 @@
-# FigmentFell — Design System Direction
+# Figmentary — Design System Direction
 
 ## Identity
 
-FigmentFell should evoke a refined personal writing desk: bound books, fine fabric, paper, ink, cards and wooden tabletop objects interpreted through a modern desktop interface.
+Figmentary should evoke a refined personal writing desk: bound books, fine fabric, paper, ink, cards and wooden tabletop objects interpreted through a modern desktop interface.
 
 Avoid both extremes:
 
@@ -15,7 +15,7 @@ The target is modern UI with tactile suggestion.
 
 Default theme: muted dark blue, low-contrast fabric texture, warm readable document surface, restrained ornament and gentle depth.
 
-The splash may use `FIGMENTFELL` typographically. `FF` is the natural monogram for app icon exploration.
+The splash may use `FIGMENTARY` typographically. `F` is the natural monogram for app icon exploration.
 
 ## Theme tokens
 

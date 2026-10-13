@@ -1,4 +1,4 @@
-# FigmentFell — UX Specification
+# Figmentary — UX Specification
 
 ## Overall interaction character
 

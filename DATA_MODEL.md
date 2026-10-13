@@ -1,4 +1,4 @@
-# FigmentFell — Conceptual Data Model
+# Figmentary — Conceptual Data Model
 
 This is a conceptual schema, not a required SQL schema. Implementation may normalize/partition data differently while preserving semantics and stable IDs.
 
@@ -163,7 +163,7 @@ Only known/validated values and curated resource IDs are accepted.
 
 ## Template
 
-A `.fftemplate` represents selected reusable portions of a story. It contains explicit inclusion metadata plus copied/default forms of selected documents, tools, appearance and layout.
+A `.figtemplate` represents selected reusable portions of a story. It contains explicit inclusion metadata plus copied/default forms of selected documents, tools, appearance and layout.
 
 It must not accidentally include runtime play state merely because that state exists in the source story.
 
@@ -206,10 +206,10 @@ Do not store global sound settings per story.
 
 ## Portable file extensions
 
-- `.ffstory` — complete story/save
-- `.fftemplate` — reusable story template
-- `.fftheme` — structured theme
-- `.ffdeck` — deck definition/assets
+- `.figstory` — complete story/save
+- `.figtemplate` — reusable story template
+- `.figtheme` — structured theme
+- `.figdeck` — deck definition/assets
 - `*.json` — community locale
 
 Every proprietary format must include an explicit `formatVersion` and support migrations. Unknown newer versions must fail safely with a useful message rather than attempting destructive writes.

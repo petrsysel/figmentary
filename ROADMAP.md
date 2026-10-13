@@ -1,4 +1,4 @@
-# FigmentFell — Implementation Roadmap
+# Figmentary — Implementation Roadmap
 
 This roadmap is ordered to retire architectural risk early while keeping the product's intended polish in scope. It is not permission to permanently defer design, accessibility, localization or atmosphere.
 
@@ -6,7 +6,7 @@ This roadmap is ordered to retire architectural risk early while keeping the pro
 
 Closed by product-owner decision. Existing technical artifacts may remain in the repository, but further proof-only code and repeated proof runs are not required to proceed.
 
-The accepted direction is Tauri 2 with React/TypeScript, one continuous Milkdown/ProseMirror instance per Markdown document, PDF.js with efficient access to story assets, and a portable SQLite-backed `.ffstory` container. Long documents receive non-blocking continuation guidance rather than automatic splitting. Ordinary edits must not load or rewrite unrelated large attachments. Backup and recovery remain product requirements.
+The accepted direction is Tauri 2 with React/TypeScript, one continuous Milkdown/ProseMirror instance per Markdown document, PDF.js with efficient access to story assets, and a portable SQLite-backed `.figstory` container. Long documents receive non-blocking continuation guidance rather than automatic splitting. Ordinary edits must not load or rewrite unrelated large attachments. Backup and recovery remain product requirements.
 
 ## Phase 1 — Foundations
 
@@ -74,7 +74,7 @@ This phase completes systems whose architecture began earlier; it must not intro
 
 Implement Save as Template with explicit inclusion UI, template library/import/export and correct conversion of runtime state to defaults.
 
-Complete `.fftheme` and `.ffdeck` sharing workflows and locale-folder discovery/validation.
+Complete `.figtheme` and `.figdeck` sharing workflows and locale-folder discovery/validation.
 
 ## Phase 9 — PDF/book export
 
@@ -90,4 +90,4 @@ Test cleanly with telemetry/network disabled because the product must not depend
 
 A release is not considered complete merely because text editing works. It should include the designed library, generic workspace, Markdown/PDF/images, bookmarks/navigation, all core widgets including cards, Sketchbook, themes, English/Czech localization, sound/motion controls, remappable shortcuts, autosave/recovery/history, templates/shareable formats and PDF export.
 
-The application should be usable fully offline without an account and without any FigmentFell-operated infrastructure.
+The application should be usable fully offline without an account and without any Figmentary-operated infrastructure.

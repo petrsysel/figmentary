@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    figmentfell_lib::run()
+    figmentary_lib::run()
 }

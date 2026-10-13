@@ -1,6 +1,6 @@
-# FigmentFell — Project Specification
+# Figmentary — Project Specification
 
-FigmentFell is a local-first desktop workspace for solo journaling RPGs. It recreates the feeling of a physical writing desk—books, paper, cards, dice, trackers, inventories and sketching—without slowing down the player's imagination.
+Figmentary is a local-first desktop workspace for solo journaling RPGs. It recreates the feeling of a physical writing desk—books, paper, cards, dice, trackers, inventories and sketching—without slowing down the player's imagination.
 
 This directory is the product source of truth for implementation. When implementation choices conflict with these documents, prefer the product intent documented here and update the specification deliberately rather than silently changing behavior.
 
@@ -15,14 +15,14 @@ This directory is the product source of truth for implementation. When implement
 
 ## Naming
 
-- Product: **FigmentFell**
-- Display/logo may use: **FIGMENTFELL**
-- Monogram: **FF**
-- Technical slug: `figmentfell`
-- Story: `.ffstory`
-- Template: `.fftemplate`
-- Theme: `.fftheme`
-- Deck: `.ffdeck`
+- Product: **Figmentary**
+- Display/logo may use: **FIGMENTARY**
+- Monogram: **F**
+- Technical slug: `figmentary`
+- Story: `.figstory`
+- Template: `.figtemplate`
+- Theme: `.figtheme`
+- Deck: `.figdeck`
 - Community locales remain human-editable JSON, e.g. `cs-CZ.json`.
 
-The extension names above are product decisions. Before public release, perform a final collision/registration review for file associations and trademarks.
+The application identifier is `com.figmentary.app`. Before public release, perform a final collision/registration review for file associations and trademarks.

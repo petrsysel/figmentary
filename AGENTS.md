@@ -1,4 +1,4 @@
-# AGENTS.md — FigmentFell
+# AGENTS.md — Figmentary
 
 This file defines how coding agents should work in this repository.
 
@@ -22,13 +22,13 @@ Do not silently rewrite product decisions in specification files to match an imp
 
 ## Product principles
 
-FigmentFell is a polished, offline-first desktop application for solo journaling RPGs.
+Figmentary is a polished, offline-first desktop application for solo journaling RPGs.
 
 Preserve these constraints:
 
 - fully local/offline operation;
 - no accounts, cloud backend, telemetry, analytics, or crash reporting;
-- no FigmentFell-operated infrastructure required for normal use;
+- no Figmentary-operated infrastructure required for normal use;
 - portable, self-contained story files;
 - generic document panels rather than hardcoded rules/journal roles;
 - a generic widget-based Tools panel;
@@ -59,7 +59,7 @@ The Tauri/Rust side owns native and durable concerns such as filesystem access, 
 
 The React/TypeScript side owns presentation and interaction.
 
-Keep persistence behind typed service/API boundaries. React components must not directly manipulate `.ffstory` internals or arbitrary application files.
+Keep persistence behind typed service/API boundaries. React components must not directly manipulate `.figstory` internals or arbitrary application files.
 
 Keep transient UI state, per-story workspace state, durable story content, and global application settings conceptually separate.
 
@@ -93,7 +93,7 @@ Do not hardcode visible user-facing strings in components. Use localization keys
 
 Do not scatter arbitrary literal colors throughout feature components. Use semantic design/theme tokens.
 
-Do not use generic developer-tool styling as a substitute for the intended FigmentFell visual character.
+Do not use generic developer-tool styling as a substitute for the intended Figmentary visual character.
 
 Keep interaction chrome restrained. Prefer contextual actions and the command palette over permanently exposing every possible command.
 
@@ -161,4 +161,4 @@ Do not prematurely implement later roadmap phases just because their scaffolding
 
 At the same time, do not create knowingly disposable architecture that contradicts requirements already scheduled for later phases.
 
-The goal is steady progress toward the complete FigmentFell product described by the specifications, not maximum code volume.
+The goal is steady progress toward the complete Figmentary product described by the specifications, not maximum code volume.

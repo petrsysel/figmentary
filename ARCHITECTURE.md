@@ -1,4 +1,4 @@
-# FigmentFell — Architecture Specification
+# Figmentary — Architecture Specification
 
 ## Proposed stack
 
@@ -23,8 +23,8 @@ Own responsibilities that require durable/native access:
 
 - managed directories
 - file associations/import/export
-- `.ffstory` persistence
-- `.fftemplate`, `.fftheme`, `.ffdeck` import/export
+- `.figstory` persistence
+- `.figtemplate`, `.figtheme`, `.figdeck` import/export
 - attachment streaming/access
 - backups/snapshots/recovery
 - safe/atomic persistence operations
@@ -61,7 +61,7 @@ Separate:
 
 ## Story persistence
 
-Preferred design direction: `.ffstory` is a single portable SQLite-backed container using a custom extension.
+Preferred design direction: `.figstory` is a single portable SQLite-backed container using a custom extension.
 
 Reasons:
 
@@ -159,7 +159,7 @@ All user-facing strings use localization keys from the beginning. English fallba
 
 ## Security and trust boundaries
 
-Treat imported `.ffstory`, `.fftemplate`, `.fftheme`, `.ffdeck`, locale JSON, Markdown, images and PDFs as untrusted input.
+Treat imported `.figstory`, `.figtemplate`, `.figtheme`, `.figdeck`, locale JSON, Markdown, images and PDFs as untrusted input.
 
 Do not execute scripts from Markdown or imported content. Validate schemas, filenames/paths and asset references. Prevent path traversal on import/export. Theme and locale files are data only.
 

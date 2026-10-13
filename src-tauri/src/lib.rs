@@ -61,7 +61,7 @@ fn append_local_error(app: &tauri::AppHandle, context: &str, error: &str) {
     let Ok(mut log) = fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(directory.join("figmentfell.log"))
+        .open(directory.join("figmentary.log"))
     else {
         return;
     };
@@ -143,7 +143,7 @@ fn list_stories(app: tauri::AppHandle) -> Result<Vec<story_store::StorySummary>,
         for entry in fs::read_dir(stories_directory(&app)?).map_err(|error| error.to_string())? {
             let entry = entry.map_err(|error| error.to_string())?;
             let path = entry.path();
-            if path.extension().is_some_and(|extension| extension == "ffstory") {
+            if path.extension().is_some_and(|extension| extension == "figstory") {
                 let store = story_store::StoryStore::open(&path).map_err(|error| error.to_string())?;
                 stories.push(store.summary().map_err(|error| error.to_string())?);
             }
@@ -159,7 +159,7 @@ fn list_stories(app: tauri::AppHandle) -> Result<Vec<story_store::StorySummary>,
 fn create_story(title: String, app: tauri::AppHandle) -> Result<story_store::StorySummary, String> {
     let result = (|| -> Result<story_store::StorySummary, String> {
         let id = Uuid::new_v4().to_string();
-        let path = stories_directory(&app)?.join(format!("{id}.ffstory"));
+        let path = stories_directory(&app)?.join(format!("{id}.figstory"));
         let store = story_store::StoryStore::create(&path, &id, &title, current_timestamp()?).map_err(|error| error.to_string())?;
         store.summary().map_err(|error| error.to_string())
     })();
@@ -171,7 +171,7 @@ fn create_story(title: String, app: tauri::AppHandle) -> Result<story_store::Sto
 fn open_story(id: String, app: tauri::AppHandle) -> Result<story_store::StorySummary, String> {
     let result = (|| -> Result<story_store::StorySummary, String> {
         let id = Uuid::parse_str(&id).map_err(|_| "Invalid story identifier.".to_owned())?.to_string();
-        let path = stories_directory(&app)?.join(format!("{id}.ffstory"));
+        let path = stories_directory(&app)?.join(format!("{id}.figstory"));
         if !path.is_file() { return Err("Story does not exist in the managed library.".to_owned()); }
         let store = story_store::StoryStore::open(&path).map_err(|error| error.to_string())?;
         store.mark_opened(current_timestamp()?).map_err(|error| error.to_string())
@@ -182,7 +182,7 @@ fn open_story(id: String, app: tauri::AppHandle) -> Result<story_store::StorySum
 
 #[tauri::command]
 async fn import_story(app: tauri::AppHandle) -> Result<Option<story_store::StorySummary>, String> {
-    let selected = app.dialog().file().add_filter("FigmentFell (.ffstory)", &["ffstory"]).blocking_pick_file();
+    let selected = app.dialog().file().add_filter("Figmentary (.figstory)", &["figstory"]).blocking_pick_file();
     let Some(selected) = selected else { return Ok(None) };
     let source = selected.into_path().map_err(|error| error.to_string())?;
     let destination_directory = stories_directory(&app)?;
@@ -200,7 +200,7 @@ async fn export_story(id: String, app: tauri::AppHandle, coordinator: tauri::Sta
     let source = managed_story_path(&app, &id)?;
     let title = story_store::StoryStore::open(&source).map_err(|error| error.to_string())?.summary().map_err(|error| error.to_string())?.title;
     let selected = app.dialog().file()
-        .add_filter("FigmentFell (.ffstory)", &["ffstory"])
+        .add_filter("Figmentary (.figstory)", &["figstory"])
         .set_file_name(story_transfer::suggested_file_name(&title))
         .blocking_save_file();
     let Some(selected) = selected else { return Ok(false) };
@@ -218,7 +218,7 @@ async fn export_story(id: String, app: tauri::AppHandle, coordinator: tauri::Sta
 
 fn managed_story_path(app: &tauri::AppHandle, id: &str) -> Result<std::path::PathBuf, String> {
     let id = Uuid::parse_str(id).map_err(|_| "Invalid story identifier.".to_owned())?.to_string();
-    let path = stories_directory(app)?.join(format!("{id}.ffstory"));
+    let path = stories_directory(app)?.join(format!("{id}.figstory"));
     if !path.is_file() { return Err("Story does not exist in the managed library.".to_owned()); }
     Ok(path)
 }
@@ -337,7 +337,7 @@ fn proof_runtime_info() -> ProofRuntimeInfo {
     }
 }
 
-/// Phase 0 only: creates an SQLite-backed .ffstory-shaped file under the OS
+/// Phase 0 only: creates an SQLite-backed .figstory-shaped file under the OS
 /// temporary directory. The generated file is removed after verification.
 #[tauri::command]
 fn run_storage_proof() -> Result<StorageProofResult, String> {
@@ -345,11 +345,11 @@ fn run_storage_proof() -> Result<StorageProofResult, String> {
     const ATTACHMENT_MEGABYTES: usize = 32;
 
     let proof_directory = std::env::temp_dir().join(format!(
-        "figmentfell-storage-proof-{}",
+        "figmentary-storage-proof-{}",
         std::process::id()
     ));
     fs::create_dir_all(&proof_directory).map_err(|error| error.to_string())?;
-    let story_path = proof_directory.join("proof.ffstory");
+    let story_path = proof_directory.join("proof.figstory");
     let started = Instant::now();
 
     let result = (|| -> Result<StorageProofResult, String> {
@@ -461,14 +461,14 @@ fn run_recovery_proof() -> Result<RecoveryProofResult, String> {
         .map_err(|error| error.to_string())?
         .as_nanos();
     let proof_directory = std::env::temp_dir().join(format!(
-        "figmentfell-recovery-proof-{}-{nonce}",
+        "figmentary-recovery-proof-{}-{nonce}",
         std::process::id()
     ));
     fs::create_dir(&proof_directory).map_err(|error| error.to_string())?;
-    let story_path = proof_directory.join("active.ffstory");
-    let snapshot_path = proof_directory.join("snapshot.ffstory");
-    let rescue_path = proof_directory.join("pre-restore.ffstory");
-    let restore_staging_path = proof_directory.join("restore-staging.ffstory");
+    let story_path = proof_directory.join("active.figstory");
+    let snapshot_path = proof_directory.join("snapshot.figstory");
+    let rescue_path = proof_directory.join("pre-restore.figstory");
+    let restore_staging_path = proof_directory.join("restore-staging.figstory");
     let started = Instant::now();
 
     let result = (|| -> Result<RecoveryProofResult, String> {
@@ -576,7 +576,7 @@ fn build_pdf_proof_document(target_bytes: usize) -> Vec<u8> {
     append_pdf_object(&mut pdf, &mut offsets, 1, b"<< /Type /Catalog /Pages 2 0 R >>");
     append_pdf_object(&mut pdf, &mut offsets, 2, b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
     append_pdf_object(&mut pdf, &mut offsets, 3, b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>");
-    let page_text = b"BT /F1 20 Tf 72 720 Td (FigmentFell PDF range proof - searchable local attachment) Tj ET";
+    let page_text = b"BT /F1 20 Tf 72 720 Td (Figmentary PDF range proof - searchable local attachment) Tj ET";
     append_pdf_object(&mut pdf, &mut offsets, 4, format!("<< /Length {} >>\nstream\n", page_text.len()).as_bytes());
     let content_offset = pdf.len() - b"\nendobj\n".len();
     pdf.truncate(content_offset);
@@ -609,9 +609,9 @@ fn start_pdf_proof(store: tauri::State<PdfProofStore>) -> Result<PdfProofMetadat
         fs::remove_dir_all(previous.directory).map_err(|error| error.to_string())?;
     }
 
-    let directory = std::env::temp_dir().join(format!("figmentfell-pdf-proof-{}", std::process::id()));
+    let directory = std::env::temp_dir().join(format!("figmentary-pdf-proof-{}", std::process::id()));
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    let story_path = directory.join("range-proof.ffstory");
+    let story_path = directory.join("range-proof.figstory");
     let pdf = build_pdf_proof_document(TARGET_BYTES);
     let byte_length = pdf.len();
     let initial_bytes = pdf[..INITIAL_BYTES.min(byte_length)].to_vec();

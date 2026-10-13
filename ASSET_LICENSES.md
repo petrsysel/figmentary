@@ -8,8 +8,8 @@ For each asset record:
 - source/creator;
 - license and its SPDX identifier where available;
 - attribution text and required attribution location;
-- modifications made by FigmentFell;
-- whether redistribution inside `.ffstory`, `.fftheme` or `.ffdeck` is permitted.
+- modifications made by Figmentary;
+- whether redistribution inside `.figstory`, `.figtheme` or `.figdeck` is permitted.
 
 ## Current assets
 
