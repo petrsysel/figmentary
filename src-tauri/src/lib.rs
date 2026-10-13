@@ -1,4 +1,5 @@
 pub mod story_store;
+mod story_transfer;
 
 use rusqlite::{params, Connection, MAIN_DB};
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,7 @@ use std::{
     time::Instant,
 };
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -176,6 +178,42 @@ fn open_story(id: String, app: tauri::AppHandle) -> Result<story_store::StorySum
     })();
     if let Err(error) = &result { append_local_error(&app, "open_story", error); }
     result
+}
+
+#[tauri::command]
+async fn import_story(app: tauri::AppHandle) -> Result<Option<story_store::StorySummary>, String> {
+    let selected = app.dialog().file().add_filter("FigmentFell (.ffstory)", &["ffstory"]).blocking_pick_file();
+    let Some(selected) = selected else { return Ok(None) };
+    let source = selected.into_path().map_err(|error| error.to_string())?;
+    let destination_directory = stories_directory(&app)?;
+    let timestamp = current_timestamp()?;
+    let result = tauri::async_runtime::spawn_blocking(move || story_transfer::import_story(&source, &destination_directory, timestamp))
+        .await.map_err(|error| error.to_string())?;
+    match result {
+        Ok(summary) => Ok(Some(summary)),
+        Err(error) => { append_local_error(&app, "import_story", &error.to_string()); Err(error.code().to_owned()) }
+    }
+}
+
+#[tauri::command]
+async fn export_story(id: String, app: tauri::AppHandle, coordinator: tauri::State<'_, StoryWriteCoordinator>) -> Result<bool, String> {
+    let source = managed_story_path(&app, &id)?;
+    let title = story_store::StoryStore::open(&source).map_err(|error| error.to_string())?.summary().map_err(|error| error.to_string())?.title;
+    let selected = app.dialog().file()
+        .add_filter("FigmentFell (.ffstory)", &["ffstory"])
+        .set_file_name(story_transfer::suggested_file_name(&title))
+        .blocking_save_file();
+    let Some(selected) = selected else { return Ok(false) };
+    let destination = selected.into_path().map_err(|error| error.to_string())?;
+    let write_lock = coordinator.0.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let _guard = write_lock.lock().map_err(|error| story_transfer::TransferError::FileOperation(error.to_string()))?;
+        story_transfer::export_story(&source, &destination)
+    }).await.map_err(|error| error.to_string())?;
+    match result {
+        Ok(()) => Ok(true),
+        Err(error) => { append_local_error(&app, "export_story", &error.to_string()); Err(error.code().to_owned()) }
+    }
 }
 
 fn managed_story_path(app: &tauri::AppHandle, id: &str) -> Result<std::path::PathBuf, String> {
@@ -633,6 +671,7 @@ fn pdf_proof_metrics(store: tauri::State<PdfProofStore>) -> Result<PdfProofMetad
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(PdfProofStore::default())
         .manage(StoryWriteCoordinator::default())
         .invoke_handler(tauri::generate_handler![
@@ -642,6 +681,8 @@ pub fn run() {
             list_stories,
             create_story,
             open_story,
+            import_story,
+            export_story,
             load_story_workspace,
             save_markdown_document,
             create_markdown_document,

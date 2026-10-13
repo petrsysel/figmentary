@@ -37,6 +37,7 @@ impl StoryStore {
     }
     pub fn summary(&self) -> Result<StorySummary, StoryStoreError> { Ok(self.connection.query_row("SELECT story_id, title, created_at, updated_at, last_opened_at FROM story_metadata WHERE singleton = 1", [], |r| Ok(StorySummary { id:r.get(0)?, title:r.get(1)?, created_at:r.get(2)?, updated_at:r.get(3)?, last_opened_at:r.get(4)? }))?) }
     pub fn mark_opened(&self, timestamp: i64) -> Result<StorySummary, StoryStoreError> { self.connection.execute("UPDATE story_metadata SET last_opened_at = ?1 WHERE singleton = 1", [timestamp])?; self.summary() }
+    pub fn assign_import_identity(&self, id: &str, timestamp: i64) -> Result<StorySummary, StoryStoreError> { self.connection.execute("UPDATE story_metadata SET story_id = ?1, last_opened_at = ?2 WHERE singleton = 1", params![id, timestamp])?; self.summary() }
     pub fn workspace(&self) -> Result<StoryWorkspace, StoryStoreError> {
         let layout: String = self.connection.query_row("SELECT workspace_layout_json FROM story_metadata WHERE singleton = 1", [], |r| r.get(0))?;
         let mut statement = self.connection.prepare("SELECT id, type, title, markdown, updated_at FROM documents ORDER BY created_at")?;
